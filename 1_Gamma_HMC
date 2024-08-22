@@ -1,0 +1,178 @@
+
+
+import numpy as np
+import random
+import math
+import matplotlib.pyplot as plt
+import seaborn as sns
+import scipy.stats as ss
+from matplotlib import pyplot
+from statsmodels.graphics.tsaplots import plot_acf
+from google.colab import files
+import time
+
+#Potential energy
+def U(q):
+  if q>0:
+    return(-4*np.log(q)+np.log(24)+q)
+  else:
+    return(0)
+
+#U gradient
+def grad_U(q):
+  return(-(4/q)+1)
+
+def HMCMC(U, grad_U, epsilon, L, inicial_q, N):
+  mu, sigma = 0, 1
+  q = inicial_q
+  chain=q
+  rechazos=0
+
+  for i in range(1,N):
+    p = np.array([np.random.normal(mu, sigma, q.shape[1])])
+
+    actual_p = p
+
+    p=p- epsilon * grad_U(q) / 2
+    for i in range(1,L+1):
+      q= q+epsilon*p
+
+      if(i!=L):
+        p=p-epsilon*grad_U(q)
+
+    p= p - epsilon * grad_U(q) / 2
+
+    p = -p
+    actual_U = U(inicial_q)
+    actual_K = np.sum(actual_p**2) / 2
+    propuesta_U = U(q)
+    propuesta_K = np.sum(p**2) / 2
+    if random.uniform(0, 1) < np.exp(actual_U-propuesta_U+actual_K-propuesta_K) and q>0:
+      chain=np.r_[chain,q]
+      inicial_q=q
+
+    else:
+      chain=np.r_[chain,inicial_q]
+      rechazos=rechazos+1
+  return(chain, rechazos)
+
+# Execution
+np.random.seed(0)
+random.seed(0)
+t0 = time.time()
+simulation=HMCMC(U,grad_U,5,6,np.array([[500]]),100000)
+t1 = time.time()
+print("--- %s segundos ---" % (t1- t0))
+
+raw_chain= simulation[0]
+rejection_rate= simulation[1]/(raw_chain.shape[0]-1)
+rejection_rate
+
+"""# Example 2
+
+"""
+
+np.random.seed(0)
+random.seed(0)
+t0 = time.time()
+simulation1=HMCMC(U,grad_U,0.09,47,np.array([[500]]),100000)
+t1 = time.time()
+print("--- %s segundos ---" % (t1- t0)) #Execution time
+
+raw_chain1= simulation1[0]
+rejection_rate1= simulation1[1]/(raw_chain1.shape[0]-1)
+1-rejection_rate1  #acceptance rate
+
+def log_densidades_gamma_r(muest):    #log densities
+  return(np.log(1/24)+4*np.log(muest)-muest)
+
+vector_verosim2 = np.zeros(100)
+for i in range(0,100):
+  vector_verosim2[i]=log_densidades_gamma_r(raw_chain1[i])
+
+burnin=64
+plt.grid(linestyle='dashed')
+plt.plot(vector_verosim2)
+plt.ylabel('$log(S(X_{t}))$')
+plt.xlabel('$X_{t}$')
+plt.axvline(burnin,-100,100,  color="red",  linestyle='dashed')
+
+#plt.savefig("burnhmc1.png",bbox_inches='tight',dpi=300)
+#files.download("burnhmc1.png")
+
+# Commented out IPython magic to ensure Python compatibility.
+# %load_ext rpy2.ipython
+
+# Commented out IPython magic to ensure Python compatibility.
+# %%R
+# install.packages("LaplacesDemon")
+# library("LaplacesDemon")
+
+# Commented out IPython magic to ensure Python compatibility.
+# %R -i raw_chain1
+
+chain_sb=raw_chain1[64:99999]   #burn-in period
+fig=plot_acf(chain_sb, lags=50,alpha=0.05)  #autocorrelations
+plt.grid(linestyle='dashed')
+plt.title("")
+plt.ylabel('Autocorrelation')
+plt.xlabel('Lag')
+plt.ylim(-0.2, 1)
+pyplot.show()
+#fig.savefig("autocorhmc.png",bbox_inches='tight',dpi=300)
+#files.download("autocorhmc.png")
+
+#Autocorrelation plot
+from matplotlib.collections import PolyCollection, LineCollection
+
+curr_fig, curr_ax = plt.subplots(figsize=(10, 8))
+plot_acf(chain_sb, lags=50,alpha=0.05, ax=curr_ax)
+
+for item in curr_ax.collections:
+    if isinstance(item, PolyCollection):
+        item.set_facecolor("dodgerblue")
+    if isinstance(item, LineCollection):
+        item.set_color("black")
+
+for item in curr_ax.lines:
+    item.set_color("dodgerblue")
+
+plt.grid(linestyle='dashed')
+plt.title("")
+plt.xlabel('Lag')
+plt.ylim(-0.2, 1.05)
+plt.ylabel('Autocorrelation', fontsize=16)
+plt.gca().axes.yaxis.set_ticklabels([])
+plt.show()
+curr_fig.savefig("autocorhmc.png", bbox_inches='tight', dpi=300)
+import os
+#from google.colab import files
+#files.download("autocorhmc.png")
+
+# Commented out IPython magic to ensure Python compatibility.
+# %R -i chain_sb
+# %R iat1=IAT(chain_sb)
+# %R  iat1
+
+lag = %R iat1
+lag= math.ceil(lag) #lag
+lag
+
+chain_sl= chain_sb[np.arange(0,len(chain_sb),lag)]  #markov chain after removing lag period
+
+len(chain_sl)
+
+#density plot
+x=np.linspace(0,18,200)
+x_pdf=ss.gamma.pdf(x,a=5,scale=1)
+plt.plot(x,x_pdf, color="red",  linewidth=3)
+
+plt.hist(chain_sl, bins = int(40), density=True, color='teal')
+
+plt.grid(linestyle='dashed')
+plt.legend(('Theoretical', 'Simulated'), bbox_to_anchor=(1.05,0.8), loc=3, borderaxespad=0, prop={'size':9})
+plt.ylabel('Density')
+plt.xlabel('$X_{t}$')
+
+#plt.savefig("densidadgamahmc.png",bbox_inches='tight',dpi=300)
+#files.download("densidadgamahmc.png")

@@ -1,0 +1,68 @@
+
+#RANDOM WALK METROPOLIS HASTINGS
+
+import numpy as np
+import random
+import math
+import matplotlib.pyplot as plt
+import seaborn as sns
+import scipy.stats as ss
+from scipy.stats import multivariate_normal
+from google.colab import files
+
+def HMCMC(U, grad_U, epsilon, L, initial_q, N):
+  mu, sigma = 0, 1
+  q = initial_q
+  chain=q
+  rejections=0
+  for i in range(1,N):
+    p = np.array([np.random.normal(mu, sigma, q.shape[1])])
+    actual_p = p
+    p=p- epsilon * grad_U(q) / 2
+    for i in range(1,L+1):
+      q= q+epsilon*p
+      if(i!=L):
+        p=p-epsilon*grad_U(q)
+    p= p - epsilon * grad_U(q) / 2
+    p = -p
+    actual_U = U(initial_q)
+    actual_K = np.sum(actual_p**2) / 2
+    proposal_U = U(q)
+    proposal_K = np.sum(p**2) / 2
+    if random.uniform(0, 1) < np.exp(actual_U-proposal_U+actual_K-proposal_K):
+      chain=np.r_[chain,q]
+      initial_q=q
+    else:
+      chain=np.r_[chain,initial_q]
+      rejections=rejections+1
+  return(chain, rejections)
+
+sigma_bivariate=np.array([[1,-0.85],[-0.85,1]])
+sigma_bivariate_inv=np.linalg.inv(sigma_bivariate)
+def U(q):
+  return(1/2*q.dot( sigma_bivariate_inv ).dot(np.transpose(q))[0][0])
+
+def grad_U(q):
+ return(np.transpose(sigma_bivariate_inv.dot(np.transpose(q))))
+
+np.random.seed(0)
+random.seed(0)
+simulation=HMCMC(U,grad_U,0.15,35,np.array([[-7,-7]]),30)
+chain_raw= simulation[0]
+rejection_rate= simulation[1]/(chain_raw.shape[0]-1)
+acceptance_rate = 1- rejection_rate
+acceptance_rate
+
+x, y = np.mgrid[-8.3:3.8:.2, -8.3:3.8:.2]
+pos = np.dstack((x, y))
+rv = multivariate_normal([0, 0], [[1, -0.85], [-0.85, 1]])
+fig2 = plt.figure()
+ax2 = fig2.add_subplot(111)
+ax2.contourf(x, y, rv.pdf(pos), 10)
+plt.plot(chain_raw[:,0], chain_raw[:,1], '.', c='red')
+plt.plot(chain_raw[:,0], chain_raw[:,1], "r")
+
+plt.ylabel(r'$q_{2}$')
+plt.xlabel(r'$q_{1}$')
+#plt.savefig("biv_ham.png",bbox_inches='tight',dpi=300)
+#files.download("biv_ham.png")

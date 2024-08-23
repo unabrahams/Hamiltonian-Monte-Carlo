@@ -31,17 +31,17 @@ def RWMH_gama51(p_ini, sigma, N):   #RWMH
 np.random.seed(0)
 random.seed(0)
 t0 = time.time()
-simulacion=RWMH_gama51(np.array([[500]]),5,100000)
+simulation=RWMH_gama51(np.array([[500]]),5,100000)
 t1 = time.time()
 print("--- %s segundos ---" % (t1- t0))
 
-raw_chain= simulacion[0]
-tasa_rechazo= simulacion[1]/(raw_chain.shape[0]-1)
-tasa_aceptacion=1-tasa_rechazo
-tasa_aceptacion  #acceptance rate
+raw_chain= simulation[0]
+rejection_rate= simulation[1]/(raw_chain.shape[0]-1)
+acceptance_rate=1-rejection_rate
+acceptance_rate  #acceptance rate
 
-def log_densidades_gamma_r(muest):
-  return(np.log(1/24)+4*np.log(muest)-muest)
+def log_densidades_gamma_r(sample2):
+  return(np.log(1/24)+4*np.log(sample2)-sample2)
 
 vector_verosim2 = np.zeros(400)        #log-density
 for i in range(0,400):

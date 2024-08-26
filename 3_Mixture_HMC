@@ -1,0 +1,118 @@
+
+import numpy as np
+import random
+import math
+import matplotlib.pyplot as plt
+import scipy.stats as ss
+from scipy.stats import multivariate_normal
+from google.colab import files
+import time
+
+mean1= [-4, -4]
+mean2=[5, 5]
+SIGMA1=  [[1, 0.5], [0.5, 1]]
+SIGMA2= [[1, -0.3], [-0.3, 1]]
+
+SIGMA1_INV=np.linalg.inv(SIGMA1)
+SIGMA2_INV=np.linalg.inv(SIGMA2)
+
+def bivariate_mixture(q):
+ return(multivariate_normal(mean1, SIGMA1).pdf(q) * 0.4  +  0.6 * multivariate_normal(mean2, SIGMA2).pdf(q) )
+def U(q):
+ return(-np.log(bivariate_mixture(q)))
+def grad_norm_vib(q,mean, desv,inverse):
+ return(-multivariate_normal(mean, desv).pdf(q)*np.transpose(inverse.dot(np.transpose(q-mean))))
+def grad_U(q):
+ return((0.4* grad_norm_vib(q,mean1, SIGMA1, SIGMA1_INV) + 0.6*grad_norm_vib(q,mean2, SIGMA2,SIGMA2_INV))/-bivariate_mixture(q))
+
+def HMCMC(U, grad_U, epsilon, L, initial_q, N):
+  mu, sigma = 0, 1
+  q = initial_q
+  chain=q
+  rejections=0
+  for i in range(1,N):
+    p = np.array([np.random.normal(mu, sigma, q.shape[1])])
+    actual_p = p
+    for i in range(1,L+1):
+      q= q+epsilon*p
+      if(i!=L):
+        p=p-epsilon*grad_U(q)
+
+    p= p - epsilon * grad_U(q) / 2
+    p = -p
+    actual_U = U(initial_q)
+    actual_K = np.sum(actual_p**2) / 2
+    proposal_U = U(q)
+    proposal_K = np.sum(p**2) / 2
+
+    if random.uniform(0, 1) < np.exp(actual_U-proposal_U+actual_K-proposal_K):
+      chain=np.r_[chain,q]
+      initial_q=q
+
+    else:
+      chain=np.r_[chain,initial_q]
+      rejections=rejections+1
+  return(chain, rejections)
+
+q=np.array([[-9,-9]])
+np.random.seed(0)
+random.seed(0)
+t0_HMC = time.time()
+sample_h=HMCMC(U,grad_U,0.2,30,q, 5000)
+t1_HMC = time.time()
+print("--- %s seconds ---" % (t1_HMC- t0_HMC))
+
+rejection_rate= sample_h[1]/(sample_h[0].shape[0]-1)
+acceptance_rate = 1- rejection_rate
+acceptance_rate
+
+sample_th=sample_h[0]
+q1=sample_th[:,0]
+q2=sample_th[:,1]
+
+x, y = np.mgrid[-10:10:.3, -10:10:.3]
+pos = np.dstack((x, y))
+
+fig2 = plt.figure()
+ax2 = fig2.add_subplot(111)
+ax2.contourf(x, y, bivariate_mixture(pos), 10)
+plt.plot(q1, q2, 'o', c='red', alpha=0.3)
+plt.xlabel(r'$q_{1}$')
+plt.ylabel(r'$q_{2}$')
+#plt.gca().axes.yaxis.set_ticklabels([])
+#plt.savefig("mezclah1.png",bbox_inches='tight',dpi=300)
+#files.download("mezclah1.png")
+
+#plt.plot(q1, q2, "r")
+
+"""#Initial point (2.5,2.5)"""
+
+q_initial2=np.array([[2.5,2.5]])
+np.random.seed(0)
+random.seed(0)
+t2_HMC = time.time()
+sample_h2=HMCMC(U,grad_U,0.2,30,q_initial2, 5000)
+t3_HMC = time.time()
+print("--- %s seconds ---" % (t3_HMC- t2_HMC))
+
+rejection_rate2= sample_h2[1]/(sample_h2[0].shape[0]-1)
+acceptance_rate2 = 1- rejection_rate2
+acceptance_rate2
+
+sample_th2=sample_h2[0]
+q1_2=sample_th2[:,0]
+q2_2=sample_th2[:,1]
+
+x, y = np.mgrid[-10:10:.3, -10:10:.3]
+pos = np.dstack((x, y))
+
+fig2 = plt.figure()
+ax2 = fig2.add_subplot(111)
+ax2.contourf(x, y, bivariate_mixture(pos), 10)
+plt.plot(q1_2, q2_2, 'o', c='red', alpha=0.3)
+plt.xlabel(r'$q_{1}$')
+plt.ylabel(r'$q_{2}$')
+
+#plt.gca().axes.yaxis.set_ticklabels([])
+#plt.savefig("mezclah2.png",bbox_inches='tight',dpi=300)
+#files.download("mezclah2.png")

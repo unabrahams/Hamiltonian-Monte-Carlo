@@ -1,0 +1,93 @@
+
+import numpy as np
+import random
+import math
+import matplotlib.pyplot as plt
+import seaborn as sns
+import scipy.stats as ss
+from matplotlib import pyplot
+from statsmodels.graphics.tsaplots import plot_acf
+from statsmodels.graphics.tsaplots import plot_pacf
+from google.colab import files
+import scipy.stats
+import time
+from scipy.stats import multivariate_normal
+
+!pip install '/content/pytwalk-1.6.0 (3).tar.gz'
+
+import pytwalk as pt
+
+mean1= [-4, -4]
+mean2=[5, 5]
+SIGMA1=  [[1, 0.5], [0.5, 1]]
+SIGMA2= [[1, -0.3], [-0.3, 1]]
+
+SIGMA1_INV=np.linalg.inv(SIGMA1)
+SIGMA2_INV=np.linalg.inv(SIGMA2)
+
+def fU(q):   #log density
+ return(-np.log(multivariate_normal(mean1, SIGMA1).pdf(q) * 0.4  +  0.6 * multivariate_normal(mean2, SIGMA2).pdf(q) ))
+
+
+def bivariate_mixture(q):
+ return(multivariate_normal(mean1, SIGMA1).pdf(q) * 0.4  +  0.6 * multivariate_normal(mean2, SIGMA2).pdf(q) )
+
+A=pt.pytwalk( n=2, U=fU)
+
+np.random.seed(0)
+random.seed(0)
+t0 = time.time()
+A.Run( T=5000*30-1, x0=-9*np.ones(2), xp0=-8*np.ones(2))
+t1 = time.time()
+print("--- %s seconds ---" % (t1- t0))
+
+A.Ana()
+
+AA=A.Output
+samples = AA[:, :-1]
+
+q1=samples[:,0][np.arange(0,len(samples[:,0]),30)]
+q2=samples[:,1][np.arange(0,len(samples[:,0]),30)]
+
+x, y = np.mgrid[-10:10:.3, -10:10:.3]
+pos = np.dstack((x, y))
+
+fig2 = plt.figure()
+ax2 = fig2.add_subplot(111)
+ax2.contourf(x, y, bivariate_mixture(pos), 10)
+plt.plot(q1, q2, 'o', c='red', alpha=0.3)
+plt.xlabel(r'$q_{1}$')
+plt.gca().axes.yaxis.set_ticklabels([])
+#plt.savefig("mezclatwalk1.png",bbox_inches='tight',dpi=300)
+#files.download("mezclatwalk1.png")
+
+#plt.plot(q1, q2, "r")
+
+np.random.seed(0)
+random.seed(0)
+t0 = time.time()
+A.Run( T=5000*30-1, x0=2.5*np.ones(2), xp0=3.5*np.ones(2))
+t1 = time.time()
+print("--- %s seconds ---" % (t1- t0))
+
+A.Ana()
+
+AA=A.Output
+samples = AA[:, :-1]
+
+q1=samples[:,0][np.arange(0,len(samples[:,0]),30)]
+q2=samples[:,1][np.arange(0,len(samples[:,0]),30)]
+
+x, y = np.mgrid[-10:10:.3, -10:10:.3]
+pos = np.dstack((x, y))
+
+fig2 = plt.figure()
+ax2 = fig2.add_subplot(111)
+ax2.contourf(x, y, bivariate_mixture(pos), 10)
+plt.plot(q1, q2, 'o', c='red', alpha=0.3)
+plt.xlabel(r'$q_{1}$')
+plt.gca().axes.yaxis.set_ticklabels([])
+#plt.savefig("mezclatwalk2.png",bbox_inches='tight',dpi=300)
+#files.download("mezclatwalk2.png")
+
+#plt.plot(q1, q2, "r")

@@ -1,0 +1,190 @@
+
+
+import numpy as np
+import random
+import math
+import matplotlib.pyplot as plt
+import seaborn as sns
+import scipy.stats as ss
+from matplotlib import pyplot
+from statsmodels.graphics.tsaplots import plot_acf
+from statsmodels.graphics.tsaplots import plot_pacf
+from google.colab import files
+import scipy.stats
+import time
+
+"""#t-walk"""
+
+!pip install '/content/pytwalk-1.6.0 (4).tar.gz'
+
+import pytwalk as pt
+
+y=np.array([[2.8,0.8,-0.3,0.7,-0.1,0.1,1.8,1.2]])
+example_deviation=np.array([[0.8,0.5,0.8,0.6,0.5,0.6,0.5,0.4]])
+
+def verosimilitud(parameters):   #log distribution
+  eta, mu2, tau = parameters[0:8],parameters[8], parameters[9]
+  log_prior = np.sum(scipy.stats.norm(0, 1).logpdf(parameters))
+  log_likelihood = np.sum(scipy.stats.norm(mu2 + eta *tau, example_deviation).logpdf(y))
+  return(log_prior + log_likelihood)
+
+def fU(parameters):
+  eta, mu2, tau = parameters[0:8],parameters[8], parameters[9]
+  log_prior = -np.sum(scipy.stats.norm(0, 1).logpdf(parameters))
+  log_likelihood = -np.sum(scipy.stats.norm(mu2 + eta *tau, example_deviation).logpdf(y))
+  return(log_prior + log_likelihood)
+
+def fUSupp(x):
+	return all( x)
+
+hh= pt.pytwalk( n=5, U=fU, Supp=fUSupp)
+
+A=pt.pytwalk( n=10, U=fU, Supp=fUSupp)
+
+np.random.seed(0)
+random.seed(0)
+t0 = time.time()
+A.Run( T=500000, x0=3*np.ones(10), xp0=2*np.ones(10))
+t1 = time.time()
+print("--- %s seconds ---" % (t1- t0))
+
+A.Ana()
+
+AA=A.Output
+
+vector_verosim2 = np.zeros(1000)
+for i in range(0,1000):
+
+  if i==0:
+    logverosimilitud=verosimilitud(AA[i][0:10])
+  else:
+    logverosimilitud=np.r_[logverosimilitud,verosimilitud(AA[i][0:10])]
+
+burnin=200
+plt.grid(linestyle='dashed')
+plt.plot(logverosimilitud)
+plt.xlabel('$X_{t}$')
+plt.axvline(burnin,-100,100,  color="red",  linestyle='dashed')
+#plt.savefig("burntw.png",bbox_inches='tight',dpi=300)
+#files.download("burntw.png")
+
+tau_sb = AA[:,9][burnin:len(AA[:,0])]
+mu_sb=AA[:,8][burnin:len(AA[:,0])]
+eta1_sb=AA[:,0][burnin:len(AA[:,0])]
+
+len(tau_sb)
+
+fig=plot_acf(mu_sb, lags=10000,alpha=0.05)  #autocorrelations
+plt.grid(linestyle='dashed')
+plt.title("")
+plt.ylabel('Autocorrelation')
+plt.xlabel('Lag')
+
+#fig.savefig("autocor_1.png",bbox_inches='tight',dpi=300)
+#files.download("autocor_1.png")
+
+import matplotlib.pyplot as plt
+from statsmodels.graphics.tsaplots import plot_acf
+from matplotlib.collections import PolyCollection, LineCollection
+
+curr_fig, curr_ax = plt.subplots(figsize=(10, 8))
+plot_acf(tau_sb, lags=20000, alpha=0.05, ax=curr_ax)
+
+for item in curr_ax.collections:
+    if isinstance(item, PolyCollection):
+        item.set_facecolor("dodgerblue")
+    if isinstance(item, LineCollection):
+        item.set_color("black")
+
+for item in curr_ax.lines:
+    item.set_color("dodgerblue")
+
+plt.grid(linestyle='dashed')
+plt.title("")
+plt.xlabel('Lag')
+plt.ylim(-0.2, 1.05)
+plt.gca().axes.yaxis.set_ticklabels([])
+
+plt.show()
+
+curr_fig.savefig("tau_tw.png", bbox_inches='tight', dpi=300)
+
+import os
+from google.colab import files
+#files.download("tau_tw.png")
+
+fig=plot_acf(eta1_sb, lags=20000,alpha=0.05)  #autocorrelations
+plt.grid(linestyle='dashed')
+plt.title("")
+plt.ylabel('Autocorrelation')
+plt.xlabel('Lag')
+
+lag=11000
+tau_sl = tau_sb[np.arange(0,len(tau_sb),lag )]
+mu_sl=mu_sb[np.arange(0,len(mu_sb),lag )]
+eta1_sl=eta1_sb[np.arange(0,len(eta1_sb),lag )]
+
+sns.kdeplot(x=mu_sl, y=tau_sl, fill=True, levels=20)
+plt.grid(linestyle='dashed')
+plt.ylabel(r'$\tau$')
+plt.xlabel('$\mu$')
+plt.xlim(-1, 2)
+plt.ylim(-2.4, 2.3)
+#plt.savefig("unotw.png",bbox_inches='tight',dpi=300)
+#files.download("unotw.png")
+
+sns.kdeplot(x=mu_sl, y=tau_sl, fill=True, levels=20)
+plt.grid(linestyle='dashed')
+plt.ylabel(r'$\tau$')
+plt.xlabel('$\mu$')
+plt.xlim(-1, 2)
+plt.ylim(-2.4, 2.3)
+#plt.savefig("unotw.png",bbox_inches='tight',dpi=300)
+#files.download("unotw.png")
+
+sns.kdeplot( x=tau_sl,y=eta1_sl, fill=True, levels=20)
+plt.grid(linestyle='dashed')
+plt.xlabel(r'$\tau$')
+plt.ylabel(r'$\eta_{1}$')
+plt.xlim(-2.8, 2.5)
+plt.ylim(-4.2, 5)
+#plt.savefig("dostw.png",bbox_inches='tight',dpi=300)
+#files.download("dostw.png")
+
+len(tau_sl)
+
+"""## 200 samples"""
+
+np.random.seed(0)
+random.seed(0)
+t0 = time.time()
+A.Run( T=500*11000+200, x0=3*np.ones(10), xp0=2*np.ones(10))
+t1 = time.time()
+print("--- %s seconds ---" % (t1- t0))
+
+AA=A.Output
+
+A.Ana()
+
+burnin, lag=200, 11000
+tau_sl = AA[:,9][burnin:len(AA[:,0])][np.arange(0,len(AA[:,0])-burnin,lag )]
+mu_sl=AA[:,8][burnin:len(AA[:,0])][np.arange(0,len(AA[:,0])-burnin,lag )]
+eta1_sl=AA[:,0][burnin:len(AA[:,0])][np.arange(0,len(AA[:,0])-burnin,lag )]
+
+sns.kdeplot(x=mu_sl, y=tau_sl, fill=True, levels=20)
+plt.grid(linestyle='dashed')
+plt.ylabel(r'$\tau$')
+plt.xlabel('$\mu$')
+plt.xlim(-1, 2)
+plt.ylim(-2.2, 2.3)
+#plt.savefig("unotw500.png",bbox_inches='tight',dpi=300)
+#files.download("unotw500.png")
+
+sns.kdeplot( x=tau_sl,y=eta1_sl, fill=True, levels=20)
+plt.grid(linestyle='dashed')
+plt.xlabel(r'$\tau$')
+plt.ylabel(r'$\eta_{1}$')
+plt.xlim(-2.8, 2.5)
+plt.ylim(-4.2, 5)
+#plt.savefig("dostw500.png",bbox_inches='tight',dpi=300)
+#files.download("dostw500.png")
